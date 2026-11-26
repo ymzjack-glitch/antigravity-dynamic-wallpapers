@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Antigravity Dynamic Wallpapers — Live Showcase</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%; height: 100%; overflow: hidden;
+      background: #04060c; color: #e6eefc;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    canvas { display: block; width: 100vw; height: 100vh; }
+
+    /* Floating glass control dock */
+    .hud {
+      position: fixed; left: 20px; right: 20px; bottom: 20px; z-index: 20;
+      display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;
+      padding: 10px 14px; border-radius: 12px;
+      background: rgba(10, 15, 28, 0.72);
+      border: 1px solid rgba(160, 195, 255, 0.16);
+      backdrop-filter: blur(14px);
+      font-size: 13px;
+      transition: opacity 0.25s ease, transform 0.25s ease;
+    }
+    .hud.hidden { opacity: 0; pointer-events: none; transform: translateY(12px); }
+    .group { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+    .btn {
+      padding: 6px 12px; border-radius: 8px; border: 1px solid rgba(160, 195, 255, 0.18);
+      background: rgba(255, 255, 255, 0.06); color: #dce8ff;
+      cursor: pointer; font-size: 12.5px; transition: all 0.18s; text-decoration: none;
+    }
+    .btn:hover { background: rgba(255, 255, 255, 0.13); }
+    .btn.active {
+      background: linear-gradient(135deg, #2563eb, #0ea5e9);
+      border-color: rgba(140, 220, 255, 0.55); color: #fff; font-weight: 600;
+    }
+    label.ctrl { display: inline-flex; align-items: center; gap: 6px; color: rgba(215, 230, 255, 0.78); font-size: 12px; }
+    input[type="range"] { width: 72px; accent-color: #38bdf8; }
+    input[type="checkbox"] { accent-color: #38bdf8; }
+
+    /* Optional simulated IDE overlay */
+    .mock-ui {
+      position: fixed; inset: 0; pointer-events: none; z-index: 10;
+      display: flex; padding: 28px; gap: 18px;
+      opacity: 0; transition: opacity 0.25s ease;
+    }
+    .mock-sidebar {
+      width: 220px; border-radius: 12px; padding: 16px;
+      background: rgba(10, 14, 24, 0.54); border: 1px solid rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(10px); display: flex; flex-direction: column; gap: 10px;
+    }
+    .bar { height: 9px; border-radius: 5px; background: rgba(255, 255, 255, 0.14); }
+    .mock-chat { flex: 1; display: flex; flex-direction: column; justify-content: space-between; padding: 12px 16px; padding-bottom: 68px; }
+    .mock-bubble {
+      max-width: 560px; border-radius: 12px; padding: 14px 16px;
+      background: rgba(12, 17, 29, 0.58); border: 1px solid rgba(255, 255, 255, 0.09);
+      backdrop-filter: blur(10px); font-size: 13.5px; line-height: 1.6; color: rgba(235, 243, 255, 0.92);
+    }
+    .mock-input {
+      max-width: 680px; border-radius: 10px; padding: 12px 16px;
+      background: rgba(12, 17, 29, 0.66); border: 1px solid rgba(255, 255, 255, 0.12);
+      backdrop-filter: blur(10px); color: rgba(200, 215, 240, 0.6); font-size: 13px;
+    }
+    .hint-pill {
+      position: fixed; top: 14px; right: 16px; z-index: 25;
+      padding: 5px 10px; border-radius: 999px; font-size: 11.5px;
+      background: rgba(10, 15, 28, 0.55); border: 1px solid rgba(160, 195, 255, 0.14);
+      color: rgba(210, 228, 255, 0.72); cursor: pointer; backdrop-filter: blur(8px);
+    }
+  </style>
+</head>
+<body>
+  <canvas id="c"></canvas>
+
+  <div id="mockOverlay" class="mock-ui">
+    <div class="mock-sidebar">
+      <div class="bar" style="width: 55%; background: rgba(255,255,255,0.25);"></div>
+      <div class="bar" style="width: 82%; margin-top: 6px;"></div>
+      <div class="bar" style="width: 68%;"></div>
+      <div class="bar" style="width: 90%; background: rgba(255,255,255,0.22);"></div>
+      <div style="margin-top: auto; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1); font-size: 12px; color: rgba(255,255,255,0.48); font-family: ui-monospace, Menlo, monospace;">Context 38% · Quota 94%</div>
+    </div>
+    <div class="mock-chat">
+      <div class="mock-bubble">
+        <div style="font-size: 11.5px; color: rgba(255,255,255,0.5); margin-bottom: 6px;">Antigravity · 界面可读性预览</div>
+        <div>视觉重心位于右侧与地平线，左侧对话区与代码块保持高对比度与低干扰，支持 60fps 平滑运行与鼠标微视差交互。</div>
+      </div>
+      <div class="mock-input">向 Antigravity 提问...（按 H 键隐藏/显示底部控制栏）</div>
+    </div>
+  </div>
+
+  <button id="toggleHudBtn" class="hint-pill">隐藏面板 (H)</button>
+
+  <div id="hud" class="hud">
+    <div class="group">
+      <button id="btnA" class="btn active">Aether Arch · 反重力光谱弧</button>
+      <button id="btnB" class="btn">Quantum Horizon · 量子脉动矩阵</button>
+      <a id="openRaw" class="btn" href="wallpapers/aether-arch.html" target="_blank">打开纯净全屏版 ↗</a>
+    </div>
+    <div class="group">
+      <label class="ctrl"><input id="toggleMock" type="checkbox" />模拟界面</label>
+      <label class="ctrl">强度<input id="intensityRange" type="range" min="0.5" max="1.5" step="0.1" value="1.0" /></label>
+      <label class="ctrl">速度<input id="speedRange" type="range" min="0.3" max="2.0" step="0.1" value="1.0" /></label>
+      <button id="btnRecord" class="btn">录制 6 秒 (.webm)</button>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+    const btnA = document.getElementById('btnA');
+    const btnB = document.getElementById('btnB');
+    const openRaw = document.getElementById('openRaw');
+    const toggleMock = document.getElementById('toggleMock');
+    const mockOverlay = document.getElementById('mockOverlay');
+    const intensityRange = document.getElementById('intensityRange');
+    const speedRange = document.getElementById('speedRange');
+    const btnRecord = document.getElementById('btnRecord');
+    const hud = document.getElementById('hud');
+    const toggleHudBtn = document.getElementById('toggleHudBtn');
+
+    let mode = 'A', intensity = 1.0, speed = 1.0, t = 0;
+    let w = window.innerWidth, h = window.innerHeight, dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const mouse = { x: 0.65, y: 0.5, tx: 0.65, ty: 0.5 };
+
+    function resize() {
+      w = window.innerWidth; h = window.innerHeight;
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    resize();
+    window.addEventListener('resize', resize);
+    window.addEventListener('mousemove', (e) => { mouse.tx = e.clientX / w; mouse.ty = e.clientY / h; });
+
+    const particlesA = Array.from({ length: 110 }, () => ({
+      u: (Math.random() - 0.5) * 1.5, offsetY: Math.random() * 260,
+      speed: 0.2 + Math.random() * 0.5, size: 1.0 + Math.random() * 2.0, phase: Math.random() * Math.PI * 2
+    }));
+    const stars = Array.from({ length: 90 }, () => ({ x: Math.random(), y: Math.random() * 0.62, r: 0.6 + Math.random() * 1.4, p: Math.random() * Math.PI * 2 }));
+    const pulsesB = Array.from({ length: 24 }, () => ({ lane: Math.floor(Math.random() * 21) - 10, z: Math.random(), vz: 0.0035 + Math.random() * 0.0065, cyan: Math.random() > 0.25 }));
+    const pillarsB = Array.from({ length: 7 }, (_, i) => ({ lane: [-9, -5, -2, 2, 5, 8, 10][i], z: 0.2 + (i % 3) * 0.24, phase: Math.random() * Math.PI * 2, height: 75 + Math.random() * 85 }));
+
+    function drawHex(cx, cy, r) {
+      ctx.beginPath();
+      for (let i = 0; i < 6; i++) {
+        const a = (Math.PI / 3) * i - Math.PI / 6;
+        const x = cx + Math.cos(a) * r, y = cy + Math.sin(a) * r;
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.closePath(); ctx.stroke();
+    }
+
+    function archY(u, baseY, peakH, wavePhase, spread) {
+      const g = Math.exp(-u * u * spread);
+      const flare = Math.exp(-Math.pow(Math.abs(u) - 0.65, 2) * 5.0) * 0.12;
+      const ripple = Math.sin(u * 5.2 - wavePhase) * 0.024 * g;
+      return baseY - peakH * (g - flare + ripple);
+    }
+
+    function drawModeA() {
+      const bg = ctx.createRadialGradient(w * 0.68, h * 0.62, 20, w * 0.5, h * 0.5, w * 0.85);
+      bg.addColorStop(0, '#0d162e'); bg.addColorStop(0.45, '#070b16'); bg.addColorStop(1, '#04060c');
+      ctx.fillStyle = bg; ctx.fillRect(0, 0, w, h);
+
+      const step = 48;
+      ctx.strokeStyle = `rgba(140, 180, 255, ${0.032 * intensity})`; ctx.lineWidth = 1;
+      for (let x = (w % step) * 0.5; x < w; x += step) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
+      for (let y = (h % step) * 0.5; y < h; y += step) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+      ctx.strokeStyle = `rgba(140, 190, 255, ${0.075 * intensity})`;
+      for (let x = (w % step) * 0.5 + step * 2; x < w; x += step * 4) {
+        for (let y = (h % step) * 0.5 + step * 2; y < h; y += step * 3) {
+          ctx.beginPath(); ctx.moveTo(x - 4, y); ctx.lineTo(x + 4, y); ctx.moveTo(x, y - 4); ctx.lineTo(x, y + 4); ctx.stroke();
+        }
+      }
+      const scanY = ((t * 36) % (h + 180)) - 90;
+      const sg = ctx.createLinearGradient(0, scanY - 70, 0, scanY + 70);
+      sg.addColorStop(0, 'rgba(72, 149, 255, 0)'); sg.addColorStop(0.5, `rgba(96, 175, 255, ${0.048 * intensity})`); sg.addColorStop(1, 'rgba(72, 149, 255, 0)');
+      ctx.fillStyle = sg; ctx.fillRect(0, scanY - 70, w, 140);
+
+      const cx = w * 0.66 + (mouse.x - 0.66) * 42, baseY = h * 0.84 + (mouse.y - 0.5) * 24;
+      const archW = Math.min(w * 0.36, 540), archH = Math.min(h * 0.56, 560);
+
+      ctx.save(); ctx.translate(cx, baseY + 10);
+      for (let i = 0; i < 4; i++) {
+        const prog = ((t * 0.22 + i * 0.25) % 1), rx = archW * (0.28 + prog * 0.88), ry = rx * 0.16;
+        ctx.strokeStyle = `rgba(74, 156, 255, ${Math.sin(prog * Math.PI) * 0.24 * intensity})`;
+        ctx.lineWidth = 1.2; ctx.beginPath(); ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2); ctx.stroke();
+      }
+      ctx.restore();
+
+      ctx.save(); ctx.translate(cx, baseY - archH * 0.60);
+      ctx.save(); ctx.rotate(t * 0.11); ctx.strokeStyle = `rgba(110, 175, 255, ${0.15 * intensity})`; ctx.lineWidth = 1.2; ctx.setLineDash([5, 11]);
+      ctx.beginPath(); ctx.arc(0, 0, archH * 0.78, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+      ctx.strokeStyle = `rgba(120, 195, 255, ${0.22 * intensity})`; ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.arc(0, 0, archH * 0.86, -0.32, 0.32); ctx.stroke();
+      ctx.beginPath(); ctx.arc(0, 0, archH * 0.86, Math.PI - 0.32, Math.PI + 0.32); ctx.stroke();
+
+      const orbits = [
+        { tilt: -0.28 + Math.sin(t * 0.35) * 0.04, sy: 0.34, r: archH * 0.92, spd: 0.85, col: '82, 195, 255' },
+        { tilt: 0.22 - Math.cos(t * 0.3) * 0.03, sy: 0.28, r: archH * 0.74, spd: -0.65, col: '130, 170, 255' }
+      ];
+      for (const ob of orbits) {
+        ctx.save(); ctx.rotate(ob.tilt); ctx.scale(1, ob.sy);
+        ctx.strokeStyle = `rgba(${ob.col}, ${0.22 * intensity})`; ctx.lineWidth = 1.3;
+        ctx.beginPath(); ctx.arc(0, 0, ob.r, 0, Math.PI * 2); ctx.stroke();
+        const satA = t * ob.spd, dir = Math.sign(ob.spd);
+        ctx.strokeStyle = `rgba(175, 235, 255, ${0.68 * intensity})`; ctx.lineWidth = 2.4;
+        ctx.beginPath(); ctx.arc(0, 0, ob.r, satA - dir * 0.36, satA, dir < 0); ctx.stroke();
+        ctx.fillStyle = '#c5f0ff'; ctx.beginPath(); ctx.arc(Math.cos(satA) * ob.r, Math.sin(satA) * ob.r, 4, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+      }
+      ctx.strokeStyle = `rgba(160, 200, 255, ${0.13 * intensity})`; ctx.lineWidth = 1;
+      for (let i = 0; i < 36; i++) {
+        const a = (i / 36) * Math.PI * 2 - t * 0.05, r1 = archH * 0.64, r2 = r1 + (i % 3 === 0 ? 10 : 4);
+        ctx.beginPath(); ctx.moveTo(Math.cos(a) * r1, Math.sin(a) * r1); ctx.lineTo(Math.cos(a) * r2, Math.sin(a) * r2); ctx.stroke();
+      }
+      ctx.restore();
+
+      ctx.save(); ctx.globalCompositeOperation = 'lighter';
+      const auraPts = [
+        { x: cx - archW * 0.22, y: baseY - archH * 0.56, r: archH * 0.58, c: `rgba(52, 168, 83, ${0.14 * intensity})` },
+        { x: cx - archW * 0.04, y: baseY - archH * 0.84, r: archH * 0.50, c: `rgba(251, 188, 5, ${0.14 * intensity})` },
+        { x: cx + archW * 0.16, y: baseY - archH * 0.64, r: archH * 0.54, c: `rgba(234, 67, 53, ${0.15 * intensity})` },
+        { x: cx, y: baseY - archH * 0.28, r: archH * 0.74, c: `rgba(66, 133, 244, ${0.22 * intensity})` }
+      ];
+      for (const a of auraPts) {
+        const g = ctx.createRadialGradient(a.x, a.y, 4, a.x, a.y, a.r); g.addColorStop(0, a.c); g.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+      }
+      for (let i = 0; i < 26; i++) {
+        const frac = i / 25, spread = 3.2 + frac * 1.1, rHeight = archH * (1 - frac * 0.44), rWidth = archW * (1 - frac * 0.12), rBaseY = baseY + frac * 18;
+        const phase = t * 1.55 + frac * 2.4, grad = ctx.createLinearGradient(cx - rWidth * 0.75, rBaseY, cx + rWidth * 0.75, rBaseY - rHeight * 0.15);
+        const aTop = Math.max(0.07, Math.min(0.85, (0.15 + (1 - Math.abs(frac - 0.35) * 1.4) * 0.25) * intensity));
+        const shift = Math.sin(t * 0.7 + frac * 2) * 0.04;
+        if (frac > 0.58) {
+          grad.addColorStop(0, 'rgba(32, 115, 255, 0)'); grad.addColorStop(0.2, `rgba(48, 138, 255, ${aTop * 1.15})`);
+          grad.addColorStop(0.5, `rgba(92, 184, 255, ${aTop * 1.35})`); grad.addColorStop(0.8, `rgba(48, 138, 255, ${aTop * 1.15})`); grad.addColorStop(1, 'rgba(32, 115, 255, 0)');
+        } else {
+          grad.addColorStop(0, 'rgba(66, 133, 244, 0)'); grad.addColorStop(0.16, `rgba(66, 133, 244, ${aTop})`);
+          grad.addColorStop(Math.min(0.45, Math.max(0.24, 0.34 + shift)), `rgba(52, 198, 108, ${aTop * 1.05})`);
+          grad.addColorStop(Math.min(0.58, Math.max(0.42, 0.49 + shift)), `rgba(255, 196, 36, ${aTop * 1.15})`);
+          grad.addColorStop(Math.min(0.75, Math.max(0.56, 0.64 + shift)), `rgba(242, 78, 62, ${aTop * 1.12})`);
+          grad.addColorStop(0.84, `rgba(66, 133, 244, ${aTop})`); grad.addColorStop(1, 'rgba(66, 133, 244, 0)');
+        }
+        ctx.strokeStyle = grad; ctx.lineWidth = i === 0 || i === 25 ? 2.4 : (1.2 + (1 - frac) * 0.9);
+        ctx.beginPath();
+        for (let s = 0; s <= 90; s++) { const u = -1 + (2 * s) / 90, x = cx + u * rWidth, y = archY(u, rBaseY, rHeight, phase, spread); if (s === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); }
+        ctx.stroke();
+      }
+      const pulseU = -0.9 + ((t * 0.42) % 1.8), px = cx + pulseU * archW, py = archY(pulseU, baseY, archH, t * 1.55, 3.2);
+      const pg = ctx.createRadialGradient(px, py, 0, px, py, 34 * intensity);
+      pg.addColorStop(0, 'rgba(255,255,255,0.9)'); pg.addColorStop(0.35, 'rgba(130,210,255,0.45)'); pg.addColorStop(1, 'rgba(66,133,244,0)');
+      ctx.fillStyle = pg; ctx.beginPath(); ctx.arc(px, py, 34 * intensity, 0, Math.PI * 2); ctx.fill();
+
+      const pts = [];
+      for (const p of particlesA) {
+        p.offsetY += p.speed * speed * 0.85;
+        if (p.offsetY > 260) { p.offsetY = 0; p.u = (Math.random() - 0.5) * 1.45; }
+        const u = p.u + Math.sin(t + p.phase) * 0.03, x = cx + u * archW + Math.sin(t * 0.8 + p.phase) * 12;
+        const y = archY(u, baseY, archH * 0.82, t * 1.5, 3.5) - p.offsetY, fade = Math.sin((p.offsetY / 260) * Math.PI);
+        let col = '90, 175, 255'; if (u < -0.12) col = '70, 210, 125'; else if (u < 0.14) col = '255, 205, 75'; else if (u < 0.42) col = '245, 98, 82';
+        pts.push({ x, y, fade, col });
+        ctx.fillStyle = `rgba(${col}, ${fade * 0.68 * intensity})`; ctx.beginPath(); ctx.arc(x, y, p.size, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = `rgba(${col}, ${fade * 0.25 * intensity})`; ctx.lineWidth = 0.9; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + 10 + p.speed * 14); ctx.stroke();
+      }
+      ctx.lineWidth = 0.7;
+      for (let i = 0; i < pts.length; i++) {
+        for (let j = i + 1; j < pts.length; j++) {
+          const dx = pts[i].x - pts[j].x, dy = pts[i].y - pts[j].y, d2 = dx * dx + dy * dy;
+          if (d2 < 3200) {
+            ctx.strokeStyle = `rgba(${pts[i].col}, ${(1 - Math.sqrt(d2) / 56.5) * Math.min(pts[i].fade, pts[j].fade) * 0.22 * intensity})`;
+            ctx.beginPath(); ctx.moveTo(pts[i].x, pts[i].y); ctx.lineTo(pts[j].x, pts[j].y); ctx.stroke();
+          }
+        }
+      }
+      ctx.restore();
+    }
+
+    function drawModeB() {
+      const bg = ctx.createLinearGradient(0, 0, 0, h);
+      bg.addColorStop(0, '#040711'); bg.addColorStop(0.52, '#071022'); bg.addColorStop(1, '#050b17');
+      ctx.fillStyle = bg; ctx.fillRect(0, 0, w, h);
+      for (const s of stars) {
+        ctx.fillStyle = `rgba(170, 215, 255, ${0.24 * (0.35 + 0.65 * Math.sin(t * 1.3 + s.p)) * intensity})`;
+        ctx.beginPath(); ctx.arc(s.x * w, s.y * h, s.r, 0, Math.PI * 2); ctx.fill();
+      }
+      const horizonY = h * 0.45 + (mouse.y - 0.5) * 30, vanishX = w * 0.62 + (mouse.x - 0.5) * 70;
+      const gx = w * 0.73 + (mouse.x - 0.5) * 32, gy = horizonY - h * 0.14 + Math.sin(t * 0.85) * 8, gr = Math.min(w, h) * 0.19;
+
+      ctx.save(); ctx.globalCompositeOperation = 'lighter';
+      const hexR = 24, dxH = hexR * Math.sqrt(3), dyH = hexR * 1.5; ctx.lineWidth = 0.9;
+      for (let row = -6; row <= 6; row++) {
+        for (let col = -7; col <= 7; col++) {
+          const hx = gx + col * dxH + (row % 2 ? dxH * 0.5 : 0), hy = gy + row * dyH, dist = Math.hypot(hx - gx, hy - gy);
+          if (dist < gr * 2.2) {
+            ctx.strokeStyle = `rgba(75, 200, 255, ${Math.pow(1 - dist / (gr * 2.2), 1.8) * (0.65 + 0.35 * Math.sin(t * 1.8 - dist * 0.03)) * 0.21 * intensity})`;
+            drawHex(hx, hy, hexR - 2);
+          }
+        }
+      }
+      const hg = ctx.createRadialGradient(vanishX, horizonY, 10, vanishX, horizonY, w * 0.48);
+      hg.addColorStop(0, `rgba(0, 212, 255, ${0.22 * intensity})`); hg.addColorStop(0.4, `rgba(68, 92, 255, ${0.11 * intensity})`); hg.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = hg; ctx.fillRect(0, 0, w, h);
+
+      const cols = 26, rows = 20, fov = Math.min(w, h) * 0.55;
+      function project(pxG, pzG) {
+        const worldX = pxG * 86, worldZ = 1.4 + pzG * 16;
+        const wave = Math.sin(pxG * 0.55 + t * 1.3) * 16 + Math.cos(pzG * 3.8 - t * 1.8) * 12 + Math.sin((pxG + pzG * 3) * 0.4 - t * 0.85) * 8;
+        const scale = fov / worldZ;
+        return { x: vanishX + worldX * scale * 0.12, y: horizonY + (98 + wave * intensity) * scale * 0.14, w: wave };
+      }
+      for (let r = 0; r < rows; r++) {
+        const gz = ((r - (t * 0.42) % 1) + rows) % rows / rows;
+        ctx.strokeStyle = `rgba(38, 198, 255, ${Math.pow(1 - gz, 1.35) * 0.42 * intensity})`; ctx.lineWidth = 0.8 + (1 - gz) * 0.9;
+        ctx.beginPath();
+        for (let c = -cols / 2; c <= cols / 2; c++) { const p = project(c, gz); if (c === -cols / 2) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y); }
+        ctx.stroke();
+      }
+      for (let c = -cols / 2; c <= cols / 2; c++) {
+        ctx.strokeStyle = `rgba(74, 140, 255, ${0.28 * (1 - Math.abs(c) / (cols / 2 + 2)) * intensity})`; ctx.lineWidth = 1.0;
+        ctx.beginPath();
+        for (let r = 0; r <= rows; r++) { const p = project(c, r / rows); if (r === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y); }
+        ctx.stroke();
+      }
+      for (let r = 1; r < 10; r++) {
+        const gz = r / rows;
+        for (let c = -10; c <= 10; c += 2) {
+          const p = project(c, gz), peakGlow = Math.max(0, (p.w + 20) / 40);
+          ctx.fillStyle = `rgba(120, 235, 255, ${peakGlow * (1 - gz) * 0.78 * intensity})`; ctx.beginPath(); ctx.arc(p.x, p.y, 1.6 + (1 - gz) * 1.4, 0, Math.PI * 2); ctx.fill();
+        }
+      }
+      for (const pl of pillarsB) {
+        const p = project(pl.lane, pl.z), pulse = 0.4 + 0.6 * Math.sin(t * 1.4 + pl.phase), bh = pl.height * (0.7 + 0.3 * pulse) * intensity;
+        const bgGrad = ctx.createLinearGradient(p.x, p.y, p.x, p.y - bh);
+        bgGrad.addColorStop(0, `rgba(85, 220, 255, ${0.38 * pulse * intensity})`); bgGrad.addColorStop(1, 'rgba(85, 220, 255, 0)');
+        ctx.strokeStyle = bgGrad; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x, p.y - bh); ctx.stroke();
+        const beadY = p.y - ((t * 38 + pl.phase * 30) % bh);
+        ctx.fillStyle = `rgba(195, 248, 255, ${0.75 * pulse * intensity})`; ctx.beginPath(); ctx.arc(p.x, beadY, 1.8, 0, Math.PI * 2); ctx.fill();
+      }
+      for (const pulse of pulsesB) {
+        pulse.z -= pulse.vz * speed;
+        if (pulse.z <= 0.02) { pulse.z = 0.98; pulse.lane = Math.floor(Math.random() * 21) - 10; }
+        const pHead = project(pulse.lane, pulse.z), pTail = project(pulse.lane, Math.min(1, pulse.z + 0.09));
+        const g = ctx.createLinearGradient(pHead.x, pHead.y, pTail.x, pTail.y);
+        g.addColorStop(0, pulse.cyan ? `rgba(170,250,255,${0.95*intensity})` : `rgba(180,155,255,${0.9*intensity})`);
+        g.addColorStop(1, pulse.cyan ? 'rgba(0,180,255,0)' : 'rgba(110,80,255,0)');
+        ctx.strokeStyle = g; ctx.lineWidth = 2.6; ctx.beginPath(); ctx.moveTo(pHead.x, pHead.y); ctx.lineTo(pTail.x, pTail.y); ctx.stroke();
+      }
+      ctx.save(); ctx.translate(gx, gy);
+      const cg = ctx.createRadialGradient(0, 0, 3, 0, 0, gr * 1.45);
+      cg.addColorStop(0, `rgba(130,235,255,${0.42*intensity})`); cg.addColorStop(0.35, `rgba(72,128,255,${0.2*intensity})`); cg.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = cg; ctx.beginPath(); ctx.arc(0, 0, gr * 1.45, 0, Math.PI * 2); ctx.fill();
+      const rings = [
+        { rx: 1.0, ry: 0.34, rot: 0.45 + t * 0.35, col: '80, 225, 255', dash: [12, 8] },
+        { rx: 0.84, ry: 0.28, rot: -0.65 - t * 0.48, col: '135, 130, 255', dash: [] },
+        { rx: 1.18, ry: 0.42, rot: 0.12 + Math.sin(t * 0.5) * 0.15, col: '120, 200, 255', dash: [3, 9] }
+      ];
+      for (const rg of rings) {
+        ctx.save(); ctx.rotate(rg.rot); ctx.scale(1, rg.ry);
+        ctx.strokeStyle = `rgba(${rg.col}, ${0.6 * intensity})`; ctx.lineWidth = 1.6; ctx.setLineDash(rg.dash);
+        ctx.beginPath(); ctx.arc(0, 0, gr * rg.rx, 0, Math.PI * 2); ctx.stroke();
+        const a = t * (rg.dash.length ? 1.4 : -1.8); ctx.setLineDash([]);
+        ctx.fillStyle = `rgba(220,250,255,${0.95*intensity})`; ctx.beginPath(); ctx.arc(Math.cos(a) * gr * rg.rx, Math.sin(a) * gr * rg.rx, 3.5, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+      }
+      ctx.rotate(t * 0.5); ctx.strokeStyle = `rgba(180,245,255,${0.85*intensity})`; ctx.lineWidth = 1.6;
+      const d = gr * 0.24; ctx.beginPath(); ctx.moveTo(0,-d); ctx.lineTo(d,0); ctx.lineTo(0,d); ctx.lineTo(-d,0); ctx.closePath(); ctx.stroke();
+      ctx.restore(); ctx.restore();
+    }
+
+    function frame() {
+      t += 0.015 * speed;
+      mouse.x += (mouse.tx - mouse.x) * 0.05;
+      mouse.y += (mouse.ty - mouse.y) * 0.05;
+      if (mode === 'A') drawModeA(); else drawModeB();
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+
+    btnA.onclick = () => { mode = 'A'; btnA.classList.add('active'); btnB.classList.remove('active'); openRaw.href = 'wallpapers/aether-arch.html'; };
+    btnB.onclick = () => { mode = 'B'; btnB.classList.add('active'); btnA.classList.remove('active'); openRaw.href = 'wallpapers/quantum-horizon.html'; };
+    toggleMock.onchange = () => { mockOverlay.style.opacity = toggleMock.checked ? '1' : '0'; };
+    intensityRange.oninput = () => { intensity = parseFloat(intensityRange.value); };
+    speedRange.oninput = () => { speed = parseFloat(speedRange.value); };
+    function toggleHud() {
+      hud.classList.toggle('hidden');
+      toggleHudBtn.textContent = hud.classList.contains('hidden') ? '显示面板 (H)' : '隐藏面板 (H)';
+    }
+    toggleHudBtn.onclick = toggleHud;
+    window.addEventListener('keydown', (e) => { if (e.key === 'h' || e.key === 'H') toggleHud(); });
+
+    btnRecord.onclick = () => {
+      if (!canvas.captureStream || typeof MediaRecorder === 'undefined') { btnRecord.textContent = '暂不支持录制'; return; }
+      btnRecord.disabled = true; btnRecord.textContent = '录制中 (6s)...';
+      const stream = canvas.captureStream(60), chunks = [];
+      let rec;
+      try { rec = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9', videoBitsPerSecond: 8000000 }); }
+      catch { rec = new MediaRecorder(stream); }
+      rec.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+      rec.onstop = () => {
+        const blob = new Blob(chunks, { type: 'video/webm' }), url = URL.createObjectURL(blob);
+        const a = document.createElement('a'); a.href = url;
+        a.download = mode === 'A' ? 'aether-arch.webm' : 'quantum-horizon.webm'; a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
+        btnRecord.disabled = false; btnRecord.textContent = '录制 6 秒 (.webm)';
+      };
+      rec.start(); setTimeout(() => rec.stop(), 6000);
+    };
+  </script>
+</body>
+</html>
