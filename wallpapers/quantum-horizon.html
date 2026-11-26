@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>Antigravity 动态壁纸 B+ — 量子脉动矩阵 (Quantum Horizon Enhanced)</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #040711; }
+    canvas { display: block; width: 100vw; height: 100vh; }
+  </style>
+</head>
+<body>
+  <canvas id="c"></canvas>
+  <script>
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+    let w = window.innerWidth, h = window.innerHeight, dpr = Math.min(window.devicePixelRatio || 1, 2);
+    let t = 0;
+    const mouse = { x: 0.6, y: 0.5, tx: 0.6, ty: 0.5 };
+
+    function resize() {
+      w = window.innerWidth; h = window.innerHeight;
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    resize();
+    window.addEventListener('resize', resize);
+    window.addEventListener('mousemove', (e) => { mouse.tx = e.clientX / w; mouse.ty = e.clientY / h; });
+
+    const stars = Array.from({ length: 90 }, () => ({ x: Math.random(), y: Math.random() * 0.62, r: 0.6 + Math.random() * 1.4, p: Math.random() * Math.PI * 2 }));
+    const pulses = Array.from({ length: 24 }, () => ({ lane: Math.floor(Math.random() * 21) - 10, z: Math.random(), vz: 0.0035 + Math.random() * 0.0065, cyan: Math.random() > 0.25 }));
+    const pillars = Array.from({ length: 7 }, (_, i) => ({ lane: [-9, -5, -2, 2, 5, 8, 10][i], z: 0.2 + (i % 3) * 0.24, phase: Math.random() * Math.PI * 2, height: 75 + Math.random() * 85 }));
+
+    function drawHex(cx, cy, r) {
+      ctx.beginPath();
+      for (let i = 0; i < 6; i++) {
+        const a = (Math.PI / 3) * i - Math.PI / 6;
+        const x = cx + Math.cos(a) * r, y = cy + Math.sin(a) * r;
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.closePath(); ctx.stroke();
+    }
+
+    function draw() {
+      t += 0.015;
+      mouse.x += (mouse.tx - mouse.x) * 0.05;
+      mouse.y += (mouse.ty - mouse.y) * 0.05;
+
+      const bg = ctx.createLinearGradient(0, 0, 0, h);
+      bg.addColorStop(0, '#040711'); bg.addColorStop(0.52, '#071022'); bg.addColorStop(1, '#050b17');
+      ctx.fillStyle = bg; ctx.fillRect(0, 0, w, h);
+
+      for (const s of stars) {
+        const tw = 0.35 + 0.65 * Math.sin(t * 1.3 + s.p);
+        ctx.fillStyle = `rgba(170, 215, 255, ${0.24 * tw})`;
+        ctx.beginPath(); ctx.arc(s.x * w, s.y * h, s.r, 0, Math.PI * 2); ctx.fill();
+      }
+
+      const horizonY = h * 0.45 + (mouse.y - 0.5) * 30;
+      const vanishX = w * 0.62 + (mouse.x - 0.5) * 70;
+      const gx = w * 0.73 + (mouse.x - 0.5) * 32;
+      const gy = horizonY - h * 0.14 + Math.sin(t * 0.85) * 8;
+      const gr = Math.min(w, h) * 0.19;
+
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+
+      // Subtle glowing hex lattice around gyro core
+      const hexR = 24, dxH = hexR * Math.sqrt(3), dyH = hexR * 1.5;
+      ctx.lineWidth = 0.9;
+      for (let row = -6; row <= 6; row++) {
+        for (let col = -7; col <= 7; col++) {
+          const hx = gx + col * dxH + (row % 2 ? dxH * 0.5 : 0);
+          const hy = gy + row * dyH;
+          const dist = Math.hypot(hx - gx, hy - gy);
+          if (dist < gr * 2.2) {
+            const fade = Math.pow(1 - dist / (gr * 2.2), 1.8);
+            const shimmer = 0.65 + 0.35 * Math.sin(t * 1.8 - dist * 0.03);
+            ctx.strokeStyle = `rgba(75, 200, 255, ${fade * shimmer * 0.21})`;
+            drawHex(hx, hy, hexR - 2);
+          }
+        }
+      }
+
+      const hg = ctx.createRadialGradient(vanishX, horizonY, 10, vanishX, horizonY, w * 0.48);
+      hg.addColorStop(0, 'rgba(0, 212, 255, 0.22)'); hg.addColorStop(0.4, 'rgba(68, 92, 255, 0.11)'); hg.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = hg; ctx.fillRect(0, 0, w, h);
+
+      const cols = 26, rows = 20, fov = Math.min(w, h) * 0.55;
+      function project(pxG, pzG) {
+        const worldX = pxG * 86, worldZ = 1.4 + pzG * 16;
+        const wave = Math.sin(pxG * 0.55 + t * 1.3) * 16 + Math.cos(pzG * 3.8 - t * 1.8) * 12 + Math.sin((pxG + pzG * 3) * 0.4 - t * 0.85) * 8;
+        const worldY = 98 + wave, scale = fov / worldZ;
+        return { x: vanishX + worldX * scale * 0.12, y: horizonY + worldY * scale * 0.14, w: wave };
+      }
+
+      for (let r = 0; r < rows; r++) {
+        const gz = ((r - (t * 0.42) % 1) + rows) % rows / rows;
+        ctx.strokeStyle = `rgba(38, 198, 255, ${Math.pow(1 - gz, 1.35) * 0.42})`;
+        ctx.lineWidth = 0.8 + (1 - gz) * 0.9;
+        ctx.beginPath();
+        for (let c = -cols / 2; c <= cols / 2; c++) { const p = project(c, gz); if (c === -cols / 2) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y); }
+        ctx.stroke();
+      }
+      for (let c = -cols / 2; c <= cols / 2; c++) {
+        ctx.strokeStyle = `rgba(74, 140, 255, ${0.28 * (1 - Math.abs(c) / (cols / 2 + 2))})`;
+        ctx.lineWidth = 1.0;
+        ctx.beginPath();
+        for (let r = 0; r <= rows; r++) { const p = project(c, r / rows); if (r === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y); }
+        ctx.stroke();
+      }
+      for (let r = 1; r < 10; r++) {
+        const gz = r / rows;
+        for (let c = -10; c <= 10; c += 2) {
+          const p = project(c, gz), peakGlow = Math.max(0, (p.w + 20) / 40);
+          ctx.fillStyle = `rgba(120, 235, 255, ${peakGlow * (1 - gz) * 0.78})`;
+          ctx.beginPath(); ctx.arc(p.x, p.y, 1.6 + (1 - gz) * 1.4, 0, Math.PI * 2); ctx.fill();
+        }
+      }
+
+      // Vertical holographic telemetry beams
+      for (const pl of pillars) {
+        const p = project(pl.lane, pl.z);
+        const pulse = 0.4 + 0.6 * Math.sin(t * 1.4 + pl.phase);
+        const bh = pl.height * (0.7 + 0.3 * pulse);
+        const bgGrad = ctx.createLinearGradient(p.x, p.y, p.x, p.y - bh);
+        bgGrad.addColorStop(0, `rgba(85, 220, 255, ${0.38 * pulse})`); bgGrad.addColorStop(1, 'rgba(85, 220, 255, 0)');
+        ctx.strokeStyle = bgGrad; ctx.lineWidth = 1.4;
+        ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x, p.y - bh); ctx.stroke();
+        const beadY = p.y - ((t * 38 + pl.phase * 30) % bh);
+        ctx.fillStyle = `rgba(195, 248, 255, ${0.75 * pulse})`;
+        ctx.beginPath(); ctx.arc(p.x, beadY, 1.8, 0, Math.PI * 2); ctx.fill();
+      }
+
+      for (const pulse of pulses) {
+        pulse.z -= pulse.vz;
+        if (pulse.z <= 0.02) { pulse.z = 0.98; pulse.lane = Math.floor(Math.random() * 21) - 10; }
+        const pHead = project(pulse.lane, pulse.z), pTail = project(pulse.lane, Math.min(1, pulse.z + 0.09));
+        const g = ctx.createLinearGradient(pHead.x, pHead.y, pTail.x, pTail.y);
+        if (pulse.cyan) { g.addColorStop(0, 'rgba(170, 250, 255, 0.95)'); g.addColorStop(1, 'rgba(0, 180, 255, 0)'); }
+        else { g.addColorStop(0, 'rgba(180, 155, 255, 0.9)'); g.addColorStop(1, 'rgba(110, 80, 255, 0)'); }
+        ctx.strokeStyle = g; ctx.lineWidth = 2.6;
+        ctx.beginPath(); ctx.moveTo(pHead.x, pHead.y); ctx.lineTo(pTail.x, pTail.y); ctx.stroke();
+      }
+
+      // Floating Orbital Gyro Core
+      ctx.save();
+      ctx.translate(gx, gy);
+      const cg = ctx.createRadialGradient(0, 0, 3, 0, 0, gr * 1.45);
+      cg.addColorStop(0, 'rgba(130, 235, 255, 0.42)'); cg.addColorStop(0.35, 'rgba(72, 128, 255, 0.20)'); cg.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = cg; ctx.beginPath(); ctx.arc(0, 0, gr * 1.45, 0, Math.PI * 2); ctx.fill();
+      const rings = [
+        { rx: 1.0, ry: 0.34, rot: 0.45 + t * 0.35, col: '80, 225, 255', dash: [12, 8] },
+        { rx: 0.84, ry: 0.28, rot: -0.65 - t * 0.48, col: '135, 130, 255', dash: [] },
+        { rx: 1.18, ry: 0.42, rot: 0.12 + Math.sin(t * 0.5) * 0.15, col: '120, 200, 255', dash: [3, 9] }
+      ];
+      for (const rg of rings) {
+        ctx.save(); ctx.rotate(rg.rot); ctx.scale(1, rg.ry);
+        ctx.strokeStyle = `rgba(${rg.col}, 0.6)`; ctx.lineWidth = 1.6; ctx.setLineDash(rg.dash);
+        ctx.beginPath(); ctx.arc(0, 0, gr * rg.rx, 0, Math.PI * 2); ctx.stroke();
+        const a = t * (rg.dash.length ? 1.4 : -1.8); ctx.setLineDash([]);
+        ctx.fillStyle = 'rgba(220, 250, 255, 0.95)';
+        ctx.beginPath(); ctx.arc(Math.cos(a) * gr * rg.rx, Math.sin(a) * gr * rg.rx, 3.5, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+      }
+      ctx.rotate(t * 0.5); ctx.strokeStyle = 'rgba(180, 245, 255, 0.85)'; ctx.lineWidth = 1.6;
+      const d = gr * 0.24;
+      ctx.beginPath(); ctx.moveTo(0, -d); ctx.lineTo(d, 0); ctx.lineTo(0, d); ctx.lineTo(-d, 0); ctx.closePath(); ctx.stroke();
+      ctx.restore();
+
+      ctx.restore();
+
+      // Subtle bottom-right live oscilloscope trace
+      ctx.strokeStyle = 'rgba(80, 220, 255, 0.32)';
+      ctx.lineWidth = 1.3;
+      ctx.beginPath();
+      for (let i = 0; i <= 70; i++) {
+        const x = w - 180 + i * 2.2;
+        const y = h - 24 + Math.sin(i * 0.32 - t * 3.8) * Math.sin((i / 70) * Math.PI) * 9;
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+
+      requestAnimationFrame(draw);
+    }
+    requestAnimationFrame(draw);
+  </script>
+</body>
+</html>

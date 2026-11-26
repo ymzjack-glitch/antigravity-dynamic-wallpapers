@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>Antigravity 动态壁纸 A+ — 反重力光谱弧 (Aether Arch Enhanced)</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #04060c; }
+    canvas { display: block; width: 100vw; height: 100vh; }
+  </style>
+</head>
+<body>
+  <canvas id="c"></canvas>
+  <script>
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+    let w = window.innerWidth, h = window.innerHeight, dpr = Math.min(window.devicePixelRatio || 1, 2);
+    let t = 0;
+    const mouse = { x: 0.66, y: 0.5, tx: 0.66, ty: 0.5 };
+
+    function resize() {
+      w = window.innerWidth; h = window.innerHeight;
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    resize();
+    window.addEventListener('resize', resize);
+    window.addEventListener('mousemove', (e) => { mouse.tx = e.clientX / w; mouse.ty = e.clientY / h; });
+
+    const particles = Array.from({ length: 110 }, () => ({
+      u: (Math.random() - 0.5) * 1.5,
+      offsetY: Math.random() * 260,
+      speed: 0.2 + Math.random() * 0.5,
+      size: 1.0 + Math.random() * 2.0,
+      phase: Math.random() * Math.PI * 2
+    }));
+
+    function archY(u, baseY, peakH, wavePhase, spread) {
+      const g = Math.exp(-u * u * spread);
+      const flare = Math.exp(-Math.pow(Math.abs(u) - 0.65, 2) * 5.0) * 0.12;
+      const ripple = Math.sin(u * 5.2 - wavePhase) * 0.024 * g;
+      return baseY - peakH * (g - flare + ripple);
+    }
+
+    function draw() {
+      t += 0.014;
+      mouse.x += (mouse.tx - mouse.x) * 0.05;
+      mouse.y += (mouse.ty - mouse.y) * 0.05;
+
+      const bg = ctx.createRadialGradient(w * 0.68, h * 0.62, 20, w * 0.5, h * 0.5, w * 0.85);
+      bg.addColorStop(0, '#0d162e');
+      bg.addColorStop(0.45, '#070b16');
+      bg.addColorStop(1, '#04060c');
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, w, h);
+
+      // Micro-grid + fiducial crosses + scanline
+      const step = 48;
+      ctx.strokeStyle = 'rgba(140, 180, 255, 0.032)';
+      ctx.lineWidth = 1;
+      for (let x = (w % step) * 0.5; x < w; x += step) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
+      for (let y = (h % step) * 0.5; y < h; y += step) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+      ctx.strokeStyle = 'rgba(140, 190, 255, 0.075)';
+      for (let x = (w % step) * 0.5 + step * 2; x < w; x += step * 4) {
+        for (let y = (h % step) * 0.5 + step * 2; y < h; y += step * 3) {
+          ctx.beginPath();
+          ctx.moveTo(x - 4, y); ctx.lineTo(x + 4, y);
+          ctx.moveTo(x, y - 4); ctx.lineTo(x, y + 4);
+          ctx.stroke();
+        }
+      }
+      const scanY = ((t * 36) % (h + 180)) - 90;
+      const sg = ctx.createLinearGradient(0, scanY - 70, 0, scanY + 70);
+      sg.addColorStop(0, 'rgba(72, 149, 255, 0)');
+      sg.addColorStop(0.5, 'rgba(96, 175, 255, 0.048)');
+      sg.addColorStop(1, 'rgba(72, 149, 255, 0)');
+      ctx.fillStyle = sg;
+      ctx.fillRect(0, scanY - 70, w, 140);
+
+      const cx = w * 0.66 + (mouse.x - 0.66) * 42;
+      const baseY = h * 0.84 + (mouse.y - 0.5) * 24;
+      const archW = Math.min(w * 0.36, 540);
+      const archH = Math.min(h * 0.56, 560);
+
+      // Anti-gravity floor ripples
+      ctx.save();
+      ctx.translate(cx, baseY + 10);
+      for (let i = 0; i < 4; i++) {
+        const prog = ((t * 0.22 + i * 0.25) % 1);
+        const rx = archW * (0.28 + prog * 0.88);
+        const ry = rx * 0.16;
+        ctx.strokeStyle = `rgba(74, 156, 255, ${Math.sin(prog * Math.PI) * 0.24})`;
+        ctx.lineWidth = 1.2;
+        ctx.beginPath(); ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2); ctx.stroke();
+      }
+      ctx.restore();
+
+      // Precision orbital HUD rings + twin trailing beacons + framing arcs
+      ctx.save();
+      ctx.translate(cx, baseY - archH * 0.60);
+      ctx.save();
+      ctx.rotate(t * 0.11);
+      ctx.strokeStyle = 'rgba(110, 175, 255, 0.15)';
+      ctx.lineWidth = 1.2;
+      ctx.setLineDash([5, 11]);
+      ctx.beginPath(); ctx.arc(0, 0, archH * 0.78, 0, Math.PI * 2); ctx.stroke();
+      ctx.restore();
+
+      ctx.strokeStyle = 'rgba(120, 195, 255, 0.22)';
+      ctx.lineWidth = 1.4;
+      const br = archH * 0.86;
+      ctx.beginPath(); ctx.arc(0, 0, br, -0.32, 0.32); ctx.stroke();
+      ctx.beginPath(); ctx.arc(0, 0, br, Math.PI - 0.32, Math.PI + 0.32); ctx.stroke();
+
+      const orbits = [
+        { tilt: -0.28 + Math.sin(t * 0.35) * 0.04, sy: 0.34, r: archH * 0.92, spd: 0.85, col: '82, 195, 255' },
+        { tilt: 0.22 - Math.cos(t * 0.3) * 0.03, sy: 0.28, r: archH * 0.74, spd: -0.65, col: '130, 170, 255' }
+      ];
+      for (const ob of orbits) {
+        ctx.save();
+        ctx.rotate(ob.tilt); ctx.scale(1, ob.sy);
+        ctx.strokeStyle = `rgba(${ob.col}, 0.22)`; ctx.lineWidth = 1.3;
+        ctx.beginPath(); ctx.arc(0, 0, ob.r, 0, Math.PI * 2); ctx.stroke();
+        const satA = t * ob.spd, dir = Math.sign(ob.spd);
+        ctx.strokeStyle = 'rgba(175, 235, 255, 0.68)'; ctx.lineWidth = 2.4;
+        ctx.beginPath(); ctx.arc(0, 0, ob.r, satA - dir * 0.36, satA, dir < 0); ctx.stroke();
+        ctx.fillStyle = '#c5f0ff';
+        ctx.beginPath(); ctx.arc(Math.cos(satA) * ob.r, Math.sin(satA) * ob.r, 4, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+      }
+
+      ctx.strokeStyle = 'rgba(160, 200, 255, 0.13)'; ctx.lineWidth = 1;
+      for (let i = 0; i < 36; i++) {
+        const a = (i / 36) * Math.PI * 2 - t * 0.05;
+        const r1 = archH * 0.64, r2 = r1 + (i % 3 === 0 ? 10 : 4);
+        ctx.beginPath(); ctx.moveTo(Math.cos(a) * r1, Math.sin(a) * r1); ctx.lineTo(Math.cos(a) * r2, Math.sin(a) * r2); ctx.stroke();
+      }
+      ctx.restore();
+
+      // Spectral aura + additive ribbons
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      const auraPts = [
+        { x: cx - archW * 0.22, y: baseY - archH * 0.56, r: archH * 0.58, c: 'rgba(52, 168, 83, 0.14)' },
+        { x: cx - archW * 0.04, y: baseY - archH * 0.84, r: archH * 0.50, c: 'rgba(251, 188, 5, 0.14)' },
+        { x: cx + archW * 0.16, y: baseY - archH * 0.64, r: archH * 0.54, c: 'rgba(234, 67, 53, 0.15)' },
+        { x: cx,                y: baseY - archH * 0.28, r: archH * 0.74, c: 'rgba(66, 133, 244, 0.22)' }
+      ];
+      for (const a of auraPts) {
+        const g = ctx.createRadialGradient(a.x, a.y, 4, a.x, a.y, a.r);
+        g.addColorStop(0, a.c); g.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+      }
+
+      const ribbonCount = 26;
+      for (let i = 0; i < ribbonCount; i++) {
+        const frac = i / (ribbonCount - 1);
+        const spread = 3.2 + frac * 1.1;
+        const rHeight = archH * (1.0 - frac * 0.44);
+        const rWidth = archW * (1.0 - frac * 0.12);
+        const rBaseY = baseY + frac * 18;
+        const phase = t * 1.55 + frac * 2.4;
+        const grad = ctx.createLinearGradient(cx - rWidth * 0.75, rBaseY, cx + rWidth * 0.75, rBaseY - rHeight * 0.15);
+        const aTop = Math.max(0.07, Math.min(0.85, 0.15 + (1 - Math.abs(frac - 0.35) * 1.4) * 0.25));
+        const shift = Math.sin(t * 0.7 + frac * 2) * 0.04;
+        if (frac > 0.58) {
+          grad.addColorStop(0, 'rgba(32, 115, 255, 0)');
+          grad.addColorStop(0.2, `rgba(48, 138, 255, ${aTop * 1.15})`);
+          grad.addColorStop(0.5, `rgba(92, 184, 255, ${aTop * 1.35})`);
+          grad.addColorStop(0.8, `rgba(48, 138, 255, ${aTop * 1.15})`);
+          grad.addColorStop(1, 'rgba(32, 115, 255, 0)');
+        } else {
+          grad.addColorStop(0, 'rgba(66, 133, 244, 0)');
+          grad.addColorStop(0.16, `rgba(66, 133, 244, ${aTop})`);
+          grad.addColorStop(Math.min(0.45, Math.max(0.24, 0.34 + shift)), `rgba(52, 198, 108, ${aTop * 1.05})`);
+          grad.addColorStop(Math.min(0.58, Math.max(0.42, 0.49 + shift)), `rgba(255, 196, 36, ${aTop * 1.15})`);
+          grad.addColorStop(Math.min(0.75, Math.max(0.56, 0.64 + shift)), `rgba(242, 78, 62, ${aTop * 1.12})`);
+          grad.addColorStop(0.84, `rgba(66, 133, 244, ${aTop})`);
+          grad.addColorStop(1, 'rgba(66, 133, 244, 0)');
+        }
+        ctx.strokeStyle = grad;
+        ctx.lineWidth = i === 0 || i === ribbonCount - 1 ? 2.4 : (1.2 + (1 - frac) * 0.9);
+        ctx.beginPath();
+        for (let s = 0; s <= 90; s++) {
+          const u = -1 + (2 * s) / 90;
+          const x = cx + u * rWidth, y = archY(u, rBaseY, rHeight, phase, spread);
+          if (s === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+      }
+
+      const pulseU = -0.9 + ((t * 0.42) % 1.8);
+      const px = cx + pulseU * archW, py = archY(pulseU, baseY, archH, t * 1.55, 3.2);
+      const pg = ctx.createRadialGradient(px, py, 0, px, py, 34);
+      pg.addColorStop(0, 'rgba(255, 255, 255, 0.9)'); pg.addColorStop(0.35, 'rgba(130, 210, 255, 0.45)'); pg.addColorStop(1, 'rgba(66, 133, 244, 0)');
+      ctx.fillStyle = pg; ctx.beginPath(); ctx.arc(px, py, 34, 0, Math.PI * 2); ctx.fill();
+
+      // Rising particles + constellation micro-links
+      const pts = [];
+      for (const p of particles) {
+        p.offsetY += p.speed * 0.85;
+        if (p.offsetY > 260) { p.offsetY = 0; p.u = (Math.random() - 0.5) * 1.45; }
+        const u = p.u + Math.sin(t + p.phase) * 0.03;
+        const x = cx + u * archW + Math.sin(t * 0.8 + p.phase) * 12;
+        const y = archY(u, baseY, archH * 0.82, t * 1.5, 3.5) - p.offsetY;
+        const fade = Math.sin((p.offsetY / 260) * Math.PI);
+        let col = '90, 175, 255';
+        if (u < -0.12) col = '70, 210, 125';
+        else if (u < 0.14) col = '255, 205, 75';
+        else if (u < 0.42) col = '245, 98, 82';
+        pts.push({ x, y, fade, col });
+        ctx.fillStyle = `rgba(${col}, ${fade * 0.68})`;
+        ctx.beginPath(); ctx.arc(x, y, p.size, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = `rgba(${col}, ${fade * 0.25})`; ctx.lineWidth = 0.9;
+        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + 10 + p.speed * 14); ctx.stroke();
+      }
+      ctx.lineWidth = 0.7;
+      for (let i = 0; i < pts.length; i++) {
+        for (let j = i + 1; j < pts.length; j++) {
+          const dx = pts[i].x - pts[j].x, dy = pts[i].y - pts[j].y, d2 = dx * dx + dy * dy;
+          if (d2 < 3200) {
+            const a = (1 - Math.sqrt(d2) / 56.5) * Math.min(pts[i].fade, pts[j].fade) * 0.22;
+            ctx.strokeStyle = `rgba(${pts[i].col}, ${a})`;
+            ctx.beginPath(); ctx.moveTo(pts[i].x, pts[i].y); ctx.lineTo(pts[j].x, pts[j].y); ctx.stroke();
+          }
+        }
+      }
+      ctx.restore();
+
+      // Bottom-right subtle spectral bars
+      const barColors = ['#4285F4', '#34A853', '#FBBC05', '#EA4335'];
+      const bx0 = w - 92, by0 = h - 22;
+      for (let i = 0; i < 12; i++) {
+        const bh = 6 + (0.5 + 0.5 * Math.sin(t * 2.4 + i * 0.65)) * 16;
+        ctx.fillStyle = barColors[i % 4];
+        ctx.globalAlpha = 0.28;
+        ctx.fillRect(bx0 + i * 6, by0 - bh, 3, bh);
+      }
+      ctx.globalAlpha = 1;
+
+      requestAnimationFrame(draw);
+    }
+    requestAnimationFrame(draw);
+  </script>
+</body>
+</html>
